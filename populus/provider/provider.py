@@ -1,5 +1,3 @@
-import itertools
-
 from pylru import lrucache
 
 from eth_utils import (
@@ -47,16 +45,25 @@ def filter_addresses_by_bytecode_match(web3, expected_bytecode, addresses):
             yield address
 
 
+def get_default_provider_backends(web3, registrar):
+    raise NotImplementedError("TODO")
+
+
 class Provider(object):
     """
     Abstraction for retrieving contracts on a given chain.
     """
-    provider_backends = None
+    backends = None
 
-    def __init__(self, web3, registrar, provider_backends):
+    def __init__(self, web3, registrar, config):
         self.web3 = web3
         self.registrar = registrar
-        self.provider_backends = provider_backends
+
+        if 'backends' in config:
+            raise NotImplementedError("TODO")
+        else:
+            self.backends = get_default_provider_backends(web3, registrar)
+
         self._factory_cache = lrucache(128)
 
     def is_contract_available(self, contract_identifier):
@@ -156,44 +163,7 @@ class Provider(object):
         Returns the base contract factory for the given `contract_identifier`.
         The `bytecode` and `bytecode_runtime` will be unlinked in this class.
         """
-        return get_base_contract_factory(contract_identifier, self.provider_backends)
-
-    def get_contract_data(self, contract_identifier):
-        """
-        Returns a dictionary containing the compiler output for the given
-        contract identifier.
-        """
-        for backend in self.provider_backends.values():
-            try:
-                return backend.get_contract_data(contract_identifier)
-            except UnknownContract:
-                continue
-        else:
-            raise UnknownContract(
-                "No contracts found for the contract identifier '{0}'".format(
-                    contract_identifier,
-                )
-            )
-
-    def get_all_contract_data(self):
-        """
-        Returns a dictionary mapping all contract identifiers to their contract data.
-        """
-        return dict(itertools.chain.from_iterable(
-            backend.get_all_contract_data().items()
-            for backend
-            in self.provider_backends.values()
-        ))
-
-    def get_all_contract_names(self):
-        """
-        Returns a set of all of the known contract identifiers.
-        """
-        return set(itertools.chain.from_iterable(
-            backend.get_all_contract_names()
-            for backend
-            in self.provider_backends.values()
-        ))
+        return get_base_contract_factory(contract_identifier, self.backends)
 
     def get_contract_factory(self, contract_identifier):
         """
