@@ -1,0 +1,132 @@
+{
+  "title": "Populus project configuration file schema",
+  "type": "object",
+  "version": "1",
+  "properties": {
+    "environments": {
+      "$ref": "#/definitions/Environments"
+    },
+    "providers": {
+      "$ref": "#/definitions/ProviderList"
+    },
+    "registrars": {
+      "$ref": "#/definitions/RegistrarList"
+    },
+    "testing": {
+      "$ref": "#/definitions/TestingConfig"
+    }
+  },
+  "definitions": {
+    "EnvironmentConfig": {
+      "title": "An environment is a collection of web3 based blockchain connections",
+      "type": "object",
+      "properties": {
+        "web3": {
+          "$ref": "#/definitions/Web3"
+        }
+      }
+    },
+    "Environments": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[a-zA-Z][-_a-zA-Z0-9]*$": {
+          "$ref": "#/definitions/EnvironmentConfig"
+        }
+      }
+    },
+    "ProviderConfig": {
+      "type": "object",
+      "required": ["class"],
+      "properties": {
+        "class": {
+          "$ref": "#/definitions/PythonImportPath"
+        },
+        "settings": {
+          "title": "Additional configuration for the provider backend class",
+          "type": "object"
+        }
+      }
+    },
+    "ProviderList": {
+      "title": "List of contract providers that this project uses",
+      "type": "array",
+      "items": {
+        "anyOf": [
+          "$ref": "#/definitions/PythonImportPath",
+          "$ref": "#/definitions/ProviderConfig"
+        ]
+      }
+    },
+    "PythonImportPath": {
+      "title": "The string representation of an import path for a python module or object",
+      "type": "string",
+      "pattern": "^[a-zA-Z][_a-zA-Z0-9]*(?:\\.[a-zA-Z][_a-zA-Z0-9]*)*$"
+    },
+    "RegistrarConfig": {
+      "type": "object",
+      "required": ["class"],
+      "properties": {
+        "class": {
+          "$ref": "#/definitions/PythonImportPath"
+        },
+        "settings": {
+          "title": "Additional configuration for the registrar backend class",
+          "type": "object"
+        }
+      }
+    },
+    "RegistrarList": {
+      "title": "List of contract registrars that this project uses",
+      "type": "array",
+      "items": {
+        "anyOf": [
+          "$ref": "#/definitions/PythonImportPath",
+          "$ref": "#/definitions/RegistrarConfig"
+        ]
+      }
+    },
+    "TestingConfig": {
+      "title": "The testing configuration for setting up testing fixtures",
+      "type": "object",
+      "properties": {
+        "web3": {
+          "$ref": "#/definitions/Web3"
+        }
+      }
+    },
+    "Web3": {
+      "title": "One or more web3 connections",
+      "anyOf": [
+          {"$ref": "#/definitions/PythonImportPath"},
+          {"$ref": "#/definitions/Web3Config"},
+          {"$ref": "#/definitions/NamedWeb3Configs"}
+      ]
+    },
+    "Web3Config": {
+      "title": "Configuration for a web instance",
+      "type": "object",
+      "required": ["provider"],
+      "properties": {
+        "provider": {
+          "$ref": "#/definitions/ProviderConfig"
+        },
+        "settings": {
+          "title": "Configuration for the web3 instance",
+          "type": "object"
+        }
+      }
+    },
+    "NamedWeb3Configs": {
+      "title": "Mapping of name to web3 configuration.",
+      "items": {
+        "^[a-zA-Z][-_a-zA-Z0-9]*$": {
+          "anyOf": [
+            {"$ref": "#/definitions/PythonImportPath"},
+            {"$ref": "#/definitions/Web3Config"}
+          ]
+        }
+      }
+    }
+  }
+}

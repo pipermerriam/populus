@@ -1,4 +1,3 @@
-import copy
 import itertools
 import os
 import sys
@@ -7,29 +6,11 @@ from eth_utils import (
     to_tuple,
 )
 
-from populus.config.defaults import (
-    load_default_config,
-)
-
 from populus.compilation import (
     compile_project_contracts,
 )
-
 from populus.config import (
-    ChainConfig,
-    CompilerConfig,
-    Config,
-    load_config as _load_config,
-    load_config_schema,
-)
-
-from populus.config.defaults import (
-    get_default_config_path,
-    get_user_default_config_path,
-)
-
-from populus.utils.chains import (
-    get_base_blockchain_storage_dir,
+    validate_project_config,
 )
 
 from populus.utils.compile import (
@@ -40,10 +21,6 @@ from populus.utils.compile import (
 
 from populus.utils.filesystem import (
     get_latest_mtime,
-)
-
-from populus.config.helpers import (
-    get_json_config_file_path,
 )
 
 from populus.utils.testing import (
@@ -57,131 +34,22 @@ if sys.version_info.major == 2:
 
 class Project(object):
     project_dir = None
-    config_file_path = None
-    user_config_file_path = None
+    config = None
 
     def __init__(self,
-                 project_dir=None,
-                 user_config_file_path=None):
+                 config=None,
+                 project_dir=None):
 
-        self._reset_configs_cache()
         if project_dir is None:
             self.project_dir = os.getcwd()
         else:
             self.project_dir = os.path.abspath(project_dir)
 
-        # user config
-        if user_config_file_path is not None:
-            if not os.path.exists(user_config_file_path):
-                raise FileNotFoundError(
-                    "No populus configuration file found at specified location: "
-                    "`{0}`".format(user_config_file_path)
-                )
-            self.user_config_file_path = user_config_file_path
-        else:
-            self.user_config_file_path = get_user_default_config_path()
+        if config is None:
+            config = {}
 
-        # project config
-        config_file_path = get_json_config_file_path(self.project_dir)
-
-        if os.path.exists(config_file_path):
-            self.config_file_path = config_file_path
-        else:
-            self.config_file_path = get_default_config_path()
-
-        self.load_config()
-
-    #
-    # Config
-    #
-
-    _project_config = None
-    _user_config = None
-    _config_schema = None
-
-    def load_config(self):
-        self._reset_configs_cache()
-        self._project_config = _load_config(self.config_file_path)
-        self._user_config = _load_config(self.user_config_file_path)
-
-        config_version = self._project_config['version']
-        self._config_schema = load_config_schema(config_version)
-
-    def _reset_configs_cache(self):
-        self._merged_config_cache = None
-        self._user_config_cache = None
-        self._project_config_cache = None
-
-    def reload_config(self):
-        self.load_config()
-
-    @property
-    def user_config(self):
-
-        if self._user_config_cache is None:
-            user_config = Config(
-                config=self._user_config,
-                schema=self._config_schema,
-            )
-            user_config.unref()
-            self._user_config_cache = user_config
-            self.merge_user_and_project_configs(user_config, self.project_config)
-
-        return self._user_config_cache
-
-    @property
-    def project_config(self):
-        if self._project_config_cache is None:
-            project_config = Config(
-                config=self._project_config,
-                parent=Config(self._user_config)
-            )
-            project_config.unref()
-            self._project_config_cache = project_config
-
-            # schema validation
-            # partial project config must be merged to get the entire schema
-            self.merge_user_and_project_configs(self.user_config, project_config)
-
-        return self._project_config_cache
-
-    def merge_user_and_project_configs(self, user_config, project_config):
-        if self._merged_config_cache is None:
-            merged_config = copy.deepcopy(self.user_config)
-            for key, value in self.project_config.items(flatten=True):
-                if key != 'version':
-                    merged_config[key] = value
-            Config(config=merged_config, schema=self._config_schema)
-            self._merged_config_cache = merged_config
-
-        return self._merged_config_cache
-
-    @property
-    def config(self):
-
-        return self.merge_user_and_project_configs(self.user_config, self.project_config)
-
-    @config.setter
-    def config(self, value):
-        if isinstance(value, Config):
-            self._merged_config_cache = value
-        else:
-            self._merged_config_cache = Config(
-                config=value,
-                schema=self._config_schema
-            )
-
-    def clean_config(self):
-
-        items = self.project_config.items(flatten=True)
-
-        default_config = Config(load_default_config(version=self.project_config['version']))
-        default_config.unref()
-        default_project_keys = [x[0] for x in default_config.items(flatten=True)]
-
-        for key, value in items:
-            if self.user_config.get(key) == value and key not in default_project_keys:
-                self.project_config.pop(key)
+        validate_project_config(config)
+        self.config = config
 
     #
     # Project
